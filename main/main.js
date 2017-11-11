@@ -51,6 +51,8 @@ class Main {
     .catch((e) => {
       if (e.message === 'Bad statusCode error: 404') {
         return wizzApi.updateApiVersionUrl();
+      } else if (e.message === 'Bad statusCode error: 403') {
+        //return wizzApi.updateApiVersionUrl();
       } else {
         throw e;
       }

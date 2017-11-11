@@ -125,13 +125,15 @@ class WizzApi {
                   if (!fly.fares.length) return;
 
                   let date = fly.departureDateTime.toString(),
-                      price;
+                      price = -1;
 
-                  if (fly.fares.length > 3) {
-                    price = fly.fares[3].basePrice.amount;
-                  } else {
-                    price = fly.fares[0].basePrice.amount;
-                  }  
+                  if (priceType !== 'soldOut') {
+                    if (fly.fares.length > 3) {
+                      price = fly.fares[3].basePrice.amount;
+                    } else {
+                      price = fly.fares[0].basePrice.amount;
+                    }  
+                  }
 
                   if (date && price) {
                     datePriceMap.set(date, price);
@@ -199,7 +201,15 @@ class WizzApi {
                   let date = fly.departureDate.toString(),
                       dateTimeArray = fly.departureDates,
                       dateTimeMap = new Map(),
-                      price = fly.price.amount;
+                      price = -1;
+
+                      if (priceType !== 'soldOut') {
+                        price = fly.price.amount;
+                      }
+
+                      // Implement when:
+                      // price: null
+                      // priceType: "soldOut"
 
                     dateTimeArray.forEach(function(dateTime, i) {
                       dateTimeMap.set(dateTime, price)

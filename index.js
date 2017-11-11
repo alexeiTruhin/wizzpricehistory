@@ -1,11 +1,31 @@
 const Main = require('./main/main.js');
-const env = process.env.NODE_ENV || 'development';
-const main = env === 'development' ? new Main('http://localhost:8000') : new Main();
+const env = process.env.NODE_ENV || 'production';
+const main = env === 'production' ? new Main() : new Main('http://localhost:8000');
 const wizzApi = main.getWizzApiInstance(); 
 const Logger = require('./main/logger.js');
 const logger = Logger('app');
 
-(async () => {
+// (async () => {
+//   while(true) {
+//     await makeOneRotation()
+//     .then(() => {
+//       logger.info('Successfully finished a rotation.');
+//     })
+//     .catch((e) => {
+//       logger.error('Failed rotation: ', e)
+//     });
+//   }
+// })();
+
+makeOneRotation()
+.then(() => {
+  logger.info('Successfully finished a rotation.');
+})
+.catch((e) => {
+  logger.error('Failed rotation: ', e)
+});
+
+async function makeOneRotation() {
   const map = await wizzApi.getMap();
   logger.info('Successfully extracted a new map.');
 
@@ -33,10 +53,4 @@ const logger = Logger('app');
   }
 
   return true;
-})()
-.then(() => {
-  logger.info('Successfully finished a rotation.');
-})
-.catch((e) => {
-  logger.error('Failed rotation: ', e)
-});
+}
