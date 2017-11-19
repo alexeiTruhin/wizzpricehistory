@@ -127,7 +127,7 @@ class WizzApi {
                   let date = fly.departureDateTime.toString(),
                       price = -1;
 
-                  if (priceType !== 'soldOut') {
+                  if (fly.priceType !== 'soldOut') {
                     if (fly.fares.length > 3) {
                       price = fly.fares[3].basePrice.amount;
                     } else {
@@ -203,7 +203,7 @@ class WizzApi {
                       dateTimeMap = new Map(),
                       price = -1;
 
-                      if (priceType !== 'soldOut') {
+                      if (fly.priceType !== 'soldOut') {
                         price = fly.price.amount;
                       }
 
