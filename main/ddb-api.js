@@ -15,6 +15,7 @@ class DdbApi {
     this.endpoint = endpoint
   }
 
+// Table FlightPrices
   createTableFlightPrices() {
     // hashkey: 'IAS|LCA|2017-10-15T06:05:00'
     // sortkey: 1507962008734
@@ -116,38 +117,7 @@ class DdbApi {
 
   }
 
-  createTableFlightPricesS() {
-    // hashkey: 'IAS|LCA|2017-10-15T06:05:00'
-    // sortkey: 1507962008734
-    // price: 120
-
-    let params = {
-      TableName : 'FlightPrices',
-      KeySchema: [       
-        { AttributeName: 'FlightIdentifier', KeyType: 'HASH'},  //Partition key
-        { AttributeName: 'PriceScanTimestamp', KeyType: 'RANGE' }  //Sort key
-      ],
-      AttributeDefinitions: [       
-        { AttributeName: 'FlightIdentifier', AttributeType: 'S' },
-        { AttributeName: 'PriceScanTimestamp', AttributeType: 'N' }
-        //{ AttributeName: 'Price', AttributeType: 'N' }
-      ],
-      ProvisionedThroughput: {       
-        ReadCapacityUnits: 5, 
-        WriteCapacityUnits: 5
-      }
-    };
-
-
-    dynamodb.createTable(params, function(err, data) {
-        if (err) {
-            console.error('Unable to create table. Error JSON:', JSON.stringify(err, null, 2));
-        } else {
-            console.log('Created table. Table description JSON:', JSON.stringify(data, null, 2));
-        }
-    });
-  }
-
+// Table Flight Time
   createTableFlightTime() {
     // hashkey: 'IAS|LCA|2017-10-15T00:00:00'
     // flightDayTime: ['2017-10-15T06:05:00', '2017-10-15T12:30:00']
@@ -248,10 +218,123 @@ class DdbApi {
 
   }
 
+// Table Flight DayTime
+  createTableFlightDayTime() {
+    // hashkey: 'IAS|LCA|2017-10-15T00:00:00'
+    // flightDayTime: ['2017-10-15T06:05:00', '2017-10-15T12:30:00']
+    const tableName = 'FlightDayTime';
+    const params = {
+      TableName : tableName,
+      KeySchema: [       
+        { AttributeName: 'FlightConnection', KeyType: 'HASH'},  //Partition key
+        { AttributeName: 'FlightDay', KeyType: 'RANGE' }  //Sort key
+      ],
+      AttributeDefinitions: [     
+        { AttributeName: 'FlightConnection', AttributeType: 'S'},  
+        { AttributeName: 'FlightDay', AttributeType: 'S' }
+      ],
+      ProvisionedThroughput: {       
+        ReadCapacityUnits: 5, 
+        WriteCapacityUnits: 5
+      }
+    };
+
+    return createTable(tableName, params);
+  }
+
+  insertFlightDayTime(entry) {
+    try {
+      this.validateFlightDayTimeEntry(entry);
+    } catch(err) {
+      return Promise.reject(err);
+    }
+
+    let params = {
+      TableName: 'FlightTime',
+      Item: {
+        'FlightConnection': [entry.dep, entry.arr].join('|'),
+        'FlightDay': entry.flightDay,
+        'FlightDayTime': entry.flightDayTime
+      }
+    };
+
+    return docClient.put(params).promise();
+  }
+
+  insertFlightDayTimeBatch(entries) {
+    let that = this,
+      validateErr;
+    entries.forEach(function(entry, i, arr) {
+      try {
+        that.validateFlightDayTimeEntry(entry);
+      } catch(err) {
+        validateErr = err;
+        return;
+      }
+
+      let newEntry = {
+        PutRequest: {
+          Item: {
+            'FlightConnection': [entry.dep, entry.arr].join('|'),
+            'FlightDay': entry.flightDay,
+            'FlightDayTime': entry.flightDayTime
+          }
+        }
+      };
+
+      entries[i] = newEntry;
+    });
+
+    if (validateErr) {
+      return Promise.reject(validateErr);
+    }
+
+    // let params = {
+    //   RequestItems: {
+    //     'FlightTime': entries
+    //   }
+    // };
+
+    return insertInChuncks('FlightDayTime', entries, 5);
+  }
+
+  validateFlightDayTimeEntry(entry) {
+    let MISMATCH = 'Type mismatch FlightTime ';
+    let entryJson = JSON.stringify(entry);
+    if (typeof entry.dep !== 'string') {
+      throw new Error(MISMATCH + 'dep. Entry: ' + entryJson);
+    }
+    if (typeof entry.arr !== 'string') {
+      throw new Error(MISMATCH + 'arr. Entry: ' + entryJson);
+    }
+    if (typeof entry.flightDay !== 'string' || isNaN(new Date(entry.flightDay).getTime())) {
+      throw new Error(MISMATCH + 'flightDay. Entry: ' + entryJson);
+    }
+
+    if (!Array.isArray(entry.flightDayTime) || !entry.flightDayTime.length) {
+      throw new Error(MISMATCH + 'flightDayTime. Entry: ' + entryJson);
+    }
+    
+    entry.flightDayTime.forEach(function(dayTime, i, arr) {
+      if (typeof dayTime !== 'string' || isNaN(new Date(dayTime).getTime())) {
+        throw new Error(MISMATCH + 'flightDayTime. Entry: ' + entryJson);
+      }
+    });
+
+  }
+
+
   getSize(table) {
     return dynamodb.describeTable({TableName: table}).promise().then((data) => {
       return data.Table.ItemCount;
     });
+  }
+
+  scan(table, limit = 0, lastEvaluatedKey) {
+    let params = {TableName: table, Limit: limit};
+    if (typeof lastEvaluatedKey !== 'undefined') params.ExclusiveStartKey = lastEvaluatedKey;
+
+    return docClient.scan(params).promise();
   }
 
   deleteAllTables(done) {

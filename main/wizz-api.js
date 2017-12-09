@@ -1,12 +1,50 @@
 'use strict';
 let request = require('request');
+// let tor = require('tor-request');
+// tor.TorControlPort.password = 'giraffe';
+// let request = tor.request;
 
 class WizzApi {
   constructor() {
     this.apiUrl = null;
     this.apicall = 0;
+    this.cookie = null;
+    this.updateCookie();
     this.updateApiVersionUrl();
     // this.apiUrl = 'https://be.wizzair.com/6.0.0/Api';
+  }
+
+  getCookie(cache = true) {
+    if (this.cookie && cache) return Promise.resolve(this.cookie);
+    return new Promise((resolve, reject) => {
+      return this.getApiVersionUrl()
+        .then(function(apiUrl) {
+          let
+          url = apiUrl + '/information/browserSupport',
+          options = {
+            url: url,
+            headers: {
+              'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'
+            } 
+          };
+          return request.get(options, function(error, response, body) {
+            if (error) {
+              reject(Error('Request error: ' + error));
+            } else if (response.statusCode !== 200 && response.statusCode !== 400) {
+              reject(Error('Bad statusCode error: ' + response.statusCode));
+            } else if (!response.headers['set-cookie'][0]){
+              reject(Error('Response header doesn\'t contain set-cookie attribute: ' + error));
+            } else {
+              resolve(response.headers['set-cookie'][0].split(' ')[0]);
+            }
+          });
+        });
+    }); 
+  }
+
+  updateCookie() {
+    this.cookie = null;
+    return this.getCookie(false).then((r) => {this.cookie = r})
   }
 
   getApiVersionUrl(cache = true, url = 'https://wizzair.com/static/metadata.json') {
@@ -85,68 +123,71 @@ class WizzApi {
     return new Promise(function(resolve, reject) {
       return that.getApiVersionUrl()
         .then(function(apiUrl) {
-          let payload = {
-            'flightList':[
-              {
-                'departureStation': departure,
-                'arrivalStation': arrival,
-                'departureDate': depDate
-              }
-            ],
-            'adultCount': 1,
-            'childCount': 0,
-            'infantCount': 0,
-            'wdc': true
-          },
-          url = apiUrl + '/search/search',
-          options = {
-            url: url,
-            body: JSON.stringify(payload),
-            headers: {
-              'content-type': 'application/json; charset=utf-8',
-              'cookie':'ASP.NET_SessionId=oyoy1pnr4qji2mpaguh1013d; _ga=GA1.2.411552624.1457814052; _gid=GA1.2.1119932722.1495348053; _gat=1',
-              'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'
-            } 
-          };
-          return request.post(options, function(error, response, body) {
-            if (error) {
-              reject(Error('Request error: ' + error));
-              
-            } else if (response.statusCode !== 200 && response.statusCode !== 400) {
-              reject(Error('Bad statusCode error: ' + response.statusCode));
-            } else if (response.statusCode === 400) {
-              resolve(new Map());
-            } else {
-              try {
-                let flights = JSON.parse(body).outboundFlights,
-                    datePriceMap = new Map();
-
-                flights.forEach(function(fly, i) {
-                  if (!fly.fares.length) return;
-
-                  let date = fly.departureDateTime.toString(),
-                      price = -1;
-
-                  if (fly.priceType !== 'soldOut') {
-                    if (fly.fares.length > 3) {
-                      price = fly.fares[3].basePrice.amount;
-                    } else {
-                      price = fly.fares[0].basePrice.amount;
-                    }  
+          return that.getCookie()
+            .then(function(cookie) {
+              let payload = {
+                'flightList':[
+                  {
+                    'departureStation': departure,
+                    'arrivalStation': arrival,
+                    'departureDate': depDate
                   }
+                ],
+                'adultCount': 1,
+                'childCount': 0,
+                'infantCount': 0,
+                'wdc': true
+              },
+              url = apiUrl + '/search/search',
+              options = {
+                url: url,
+                body: JSON.stringify(payload),
+                headers: {
+                  'content-type': 'application/json; charset=utf-8',
+                  'cookie': cookie,
+                  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'
+                } 
+              };
+              return request.post(options, function(error, response, body) {
+                if (error) {
+                  reject(Error('Request error: ' + error));
+                  
+                } else if (response.statusCode !== 200 && response.statusCode !== 400) {
+                  reject(Error('Bad statusCode error: ' + response.statusCode));
+                } else if (response.statusCode === 400) {
+                  resolve(new Map());
+                } else {
+                  try {
+                    let flights = JSON.parse(body).outboundFlights,
+                        datePriceMap = new Map();
 
-                  if (date && price) {
-                    datePriceMap.set(date, price);
-                  } else {
-                    return
+                    flights.forEach(function(fly, i) {
+                      if (!fly.fares.length) return;
+
+                      let date = fly.departureDateTime.toString(),
+                          price = -1;
+
+                      if (fly.priceType !== 'soldOut') {
+                        if (fly.fares.length > 3) {
+                          price = fly.fares[3].basePrice.amount;
+                        } else {
+                          price = fly.fares[0].basePrice.amount;
+                        }  
+                      }
+
+                      if (date && price) {
+                        datePriceMap.set(date, price);
+                      } else {
+                        return
+                      }
+                    });
+                    resolve(datePriceMap);
+                  } catch (error) {
+                    reject(Error('Could not parse body. ' + error));
                   }
-                });
-                resolve(datePriceMap);
-              } catch (error) {
-                reject(Error('Could not parse body. ' + error));
-              }
-            }
-          });
+                }
+              });
+            });
         });
     });
   }
@@ -160,75 +201,78 @@ class WizzApi {
     return new Promise(function(resolve, reject) {
       return that.getApiVersionUrl()
         .then(function(apiUrl) {
-          let payload = {
-            'flightList':[
-              {
-                'departureStation': departure,
-                'arrivalStation': arrival,
-                'from': depDateFrom,
-                'to': depDateTo
-              }
-            ],
-            'priceType': 'regular'
-          },
-          url = apiUrl + '/search/timetable',
-          options = {
-            url: url,
-            body: JSON.stringify(payload),
-            headers: {
-              'content-type': 'application/json; charset=utf-8',
-              'cookie':'ASP.NET_SessionId=oyoy1pnr4qji2mpaguh1013d; _ga=GA1.2.411552624.1457814052; _gid=GA1.2.1119932722.1495348053; _gat=1',
-              'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'
-            } 
-          };
+          return that.getCookie()
+            .then(function(cookie) {
+              let payload = {
+                'flightList':[
+                  {
+                    'departureStation': departure,
+                    'arrivalStation': arrival,
+                    'from': depDateFrom,
+                    'to': depDateTo
+                  }
+                ],
+                'priceType': 'regular'
+              },
+              url = apiUrl + '/search/timetable',
+              options = {
+                url: url,
+                body: JSON.stringify(payload),
+                headers: {
+                  'content-type': 'application/json; charset=utf-8',
+                  'cookie': cookie,
+                  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'
+                } 
+              };
 
-          return request.post(options, function(error, response, body) {
-            if (error) {
-              reject(Error('Request error: ' + error));
-            } else if (response.statusCode !== 200) {
-              reject(Error('Bad statusCode error: ' + response.statusCode));
-            } else {
-              try {
-                // outboundFlights: {
-                //   departureDate: '2017-10-01T00:00:00',
-                //   departureDates: ['2017-10-01T06:05:00', '2017-10-01T19:40:00'],
-                //   price: {amount: 500}
-                // }
-                let flights = JSON.parse(body).outboundFlights,
-                    periodPriceMap = new Map();
+              return request.post(options, function(error, response, body) {
+                if (error) {
+                  reject(Error('Request error: ' + error));
+                } else if (response.statusCode !== 200) {
+                  reject(Error('Bad statusCode error: ' + response.statusCode));
+                } else {
+                  try {
+                    // outboundFlights: {
+                    //   departureDate: '2017-10-01T00:00:00',
+                    //   departureDates: ['2017-10-01T06:05:00', '2017-10-01T19:40:00'],
+                    //   price: {amount: 500}
+                    // }
+                    let flights = JSON.parse(body).outboundFlights,
+                        periodPriceMap = new Map();
 
-                flights.forEach(function(fly, i) {
-                  let date = fly.departureDate.toString(),
-                      dateTimeArray = fly.departureDates,
-                      dateTimeMap = new Map(),
-                      price = -1;
+                    flights.forEach(function(fly, i) {
+                      let date = fly.departureDate.toString(),
+                          dateTimeArray = fly.departureDates,
+                          dateTimeMap = new Map(),
+                          price = -1;
 
-                      if (fly.priceType !== 'soldOut') {
-                        price = fly.price.amount;
+                          if (fly.priceType !== 'soldOut') {
+                            price = fly.price.amount;
+                          }
+
+                          // Implement when:
+                          // price: null
+                          // priceType: "soldOut"
+
+                        dateTimeArray.forEach(function(dateTime, i) {
+                          dateTimeMap.set(dateTime, price)
+                        });
+
+                      if (date && price) {
+                        dateTimeMap
+                        periodPriceMap.set(date, dateTimeMap);
+                      } else {
+                        return
                       }
-
-                      // Implement when:
-                      // price: null
-                      // priceType: "soldOut"
-
-                    dateTimeArray.forEach(function(dateTime, i) {
-                      dateTimeMap.set(dateTime, price)
                     });
 
-                  if (date && price) {
-                    dateTimeMap
-                    periodPriceMap.set(date, dateTimeMap);
-                  } else {
-                    return
+                    resolve(periodPriceMap);
+                  } catch (error) {
+                    reject(Error('Could not parse body. ' + error));
                   }
-                });
-
-                resolve(periodPriceMap);
-              } catch (error) {
-                reject(Error('Could not parse body. ' + error));
-              }
-            }
-          });
+                }
+              });
+            });
         });
     });
   }

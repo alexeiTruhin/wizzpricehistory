@@ -43,10 +43,10 @@ class Main {
         });
       });
 
-      let flightTimeBatchPromise = ddbApi.insertFlightTimeBatch(flightDayTimeEntries);
+      let flightDayTimeBatchPromise = ddbApi.insertFlightDayTimeBatch(copyObj(flightDayTimeEntries));
       let flightPriceBatchPromise = ddbApi.insertFlightPriceBatch(flightPriceEntries);
 
-      return Promise.all([flightTimeBatchPromise, flightPriceBatchPromise]);
+      return Promise.all([flightPriceBatchPromise, flightDayTimeBatchPromise]);
     })
     .catch((e) => {
       if (e.message === 'Bad statusCode error: 404') {
@@ -62,6 +62,10 @@ class Main {
   getWizzApiInstance () {
     return wizzApi;
   }
+}
+
+function copyObj(obj) {
+  return JSON.parse(JSON.stringify(obj));
 }
 
 module.exports = Main;

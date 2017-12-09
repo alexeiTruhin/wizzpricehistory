@@ -1,3 +1,4 @@
+'use strict';
 const Main = require('./main/main.js');
 const env = process.env.NODE_ENV || 'production';
 const main = env === 'production' ? new Main() : new Main('http://localhost:8000');
