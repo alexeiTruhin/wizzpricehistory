@@ -4,19 +4,24 @@ let request = require('request');
 // tor.TorControlPort.password = 'giraffe';
 // let request = tor.request;
 
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36';
+
 class WizzApi {
   constructor() {
     this.apiUrl = null;
     this.apicall = 0;
     this.cookie = null;
+    this.cookieStartedRequest = false;
     this.updateCookie();
     this.updateApiVersionUrl();
     // this.apiUrl = 'https://be.wizzair.com/6.0.0/Api';
   }
 
   getCookie(cache = true) {
+    if (this.cookieStartedRequest) return this.cookieStartedRequest;
     if (this.cookie && cache) return Promise.resolve(this.cookie);
-    return new Promise((resolve, reject) => {
+
+    this.cookieStartedRequest = new Promise((resolve, reject) => {
       return this.getApiVersionUrl()
         .then(function(apiUrl) {
           let
@@ -24,10 +29,14 @@ class WizzApi {
           options = {
             url: url,
             headers: {
-              'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'
+              'user-agent': USER_AGENT,
+              'accept-encoding': 'gzip',
+              'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
             } 
           };
           return request.get(options, function(error, response, body) {
+            console.log(response.headers);
+            this.cookieStartedRequest = false;
             if (error) {
               reject(Error('Request error: ' + error));
             } else if (response.statusCode !== 200 && response.statusCode !== 400) {
@@ -38,13 +47,16 @@ class WizzApi {
               resolve(response.headers['set-cookie'][0].split(' ')[0]);
             }
           });
-        });
-    }); 
+        })
+      .catch((error) => {throw ('Failed to get cookie. ' + error);}); 
+    })
+    .catch((error) => {throw (error);}); 
+    return this.cookieStartedRequest;
   }
 
   updateCookie() {
     this.cookie = null;
-    return this.getCookie(false).then((r) => {this.cookie = r})
+    return this.getCookie(false).then((r) => {this.cookie = r}).catch((error) => {throw ('Failed to get cookie. ' + error);});
   }
 
   getApiVersionUrl(cache = true, url = 'https://wizzair.com/static/metadata.json') {
@@ -99,8 +111,17 @@ class WizzApi {
     return new Promise(function(resolve, reject) {
       return that.getApiVersionUrl()
         .then(function(apiUrl) {
-          let url = apiUrl + '/asset/map?languageCode=en-gb&forceJavascriptOutput=true&package=Wizzair';
-          return request(url, function(error, response, body) {
+          //let url = apiUrl + '/asset/map?languageCode=en-gb&forceJavascriptOutput=true&package=Wizzair';
+          let url = apiUrl + '/asset/map?languageCode=en-gb&forceJavascriptOutput=true';
+          console.log(url);
+          let options = {
+            url: url,
+            headers: {
+              'content-type': 'application/json; charset=utf-8',
+              'user-agent': USER_AGENT
+            } 
+          };
+          return request(options, function(error, response, body) {
             if (error) {
               reject(Error('Request error: ' + error));
             } else if (response.statusCode !== 200) {
@@ -145,7 +166,7 @@ class WizzApi {
                 headers: {
                   'content-type': 'application/json; charset=utf-8',
                   'cookie': cookie,
-                  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'
+                  'user-agent': USER_AGENT
                 } 
               };
               return request.post(options, function(error, response, body) {
@@ -153,8 +174,10 @@ class WizzApi {
                   reject(Error('Request error: ' + error));
                   
                 } else if (response.statusCode !== 200 && response.statusCode !== 400) {
+                  //that.updateCookie();
                   reject(Error('Bad statusCode error: ' + response.statusCode));
                 } else if (response.statusCode === 400) {
+                  //that.updateCookie();
                   resolve(new Map());
                 } else {
                   try {
@@ -162,16 +185,16 @@ class WizzApi {
                         datePriceMap = new Map();
 
                     flights.forEach(function(fly, i) {
-                      if (!fly.fares.length) return;
+                      //if (!fly.fares.length) return;
 
                       let date = fly.departureDateTime.toString(),
                           price = -1;
 
-                      if (fly.priceType !== 'soldOut') {
+                      if (fly.priceType !== 'soldOut' && fly.fares.length) {
                         if (fly.fares.length > 3) {
-                          price = fly.fares[3].basePrice.amount;
+                          price = fly.fares[3].discountedPrice ? fly.fares[3].discountedPrice.amount : fly.fares[3].basePrice.amount;
                         } else {
-                          price = fly.fares[0].basePrice.amount;
+                          price = fly.fares[0].discountedPrice ? fly.fares[0].discountedPrice.amount : fly.fares[0].basePrice.amount;
                         }  
                       }
 
@@ -187,7 +210,8 @@ class WizzApi {
                   }
                 }
               });
-            });
+            })
+            .catch((error) => {throw ('Failed to get cookie. ' + error);});
         });
     });
   }
@@ -204,6 +228,9 @@ class WizzApi {
           return that.getCookie()
             .then(function(cookie) {
               let payload = {
+                'adultCount': 1,
+                'childCount': 0,
+                'infantCount': 0,
                 'flightList':[
                   {
                     'departureStation': departure,
@@ -221,14 +248,18 @@ class WizzApi {
                 headers: {
                   'content-type': 'application/json; charset=utf-8',
                   'cookie': cookie,
-                  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'
+                  'user-agent': USER_AGENT
                 } 
               };
 
+              //console.log(options);
+
               return request.post(options, function(error, response, body) {
+                //console.log('body', body);
                 if (error) {
                   reject(Error('Request error: ' + error));
                 } else if (response.statusCode !== 200) {
+                  //that.updateCookie();
                   reject(Error('Bad statusCode error: ' + response.statusCode));
                 } else {
                   try {
@@ -266,13 +297,15 @@ class WizzApi {
                       }
                     });
 
+                    //console.log('periodMap', periodPriceMap);
                     resolve(periodPriceMap);
                   } catch (error) {
                     reject(Error('Could not parse body. ' + error));
                   }
                 }
               });
-            });
+            })
+            .catch((error) => {throw ('Failed to get cookie. ' + error);});
         });
     });
   }

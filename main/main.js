@@ -18,6 +18,7 @@ class Main {
   getAndStorePrices (departure, arrival,  dateFrom, dateTo) {
     return wizzApi.getAndPopulatePricesPeriod(departure, arrival,  dateFrom, dateTo)
     .then((pricesPeriodMap) => {
+      if (!pricesPeriodMap.size) console.log('no items to process')
       if (!pricesPeriodMap.size) return 'no items to process';
       let timestamp = new Date().getTime();
       let flightPriceEntries = [],
