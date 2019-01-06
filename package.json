@@ -16,7 +16,7 @@
     "aws-sdk": "2.127.0",
     "chai-as-promised": "7.1.1",
     "chai-json-schema": "1.5.0",
-    "request": "2.81.0",
+    "request": "2.88.0",
     "tor-request": "^1.0.6",
     "winston": "2.4.0",
     "winston-daily-rotate-file": "1.7.2"

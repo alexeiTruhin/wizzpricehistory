@@ -1,10 +1,11 @@
 'use strict';
 let request = require('request');
+let exec = require('child_process').exec;
 // let tor = require('tor-request');
 // tor.TorControlPort.password = 'giraffe';
 // let request = tor.request;
 
-const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36';
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36';
 
 class WizzApi {
   constructor() {
@@ -25,16 +26,23 @@ class WizzApi {
       return this.getApiVersionUrl()
         .then(function(apiUrl) {
           let
-          url = apiUrl + '/information/browserSupport',
+          //url = apiUrl + '/information/browserSupport',
+          url = apiUrl + '/information/buildNumber',
           options = {
             url: url,
             headers: {
-              'user-agent': USER_AGENT,
-              'accept-encoding': 'gzip',
-              'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
+      'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+      'accept-language': 'en-US,en;q=0.9,ro;q=0.8',
+      'accept-encoding': 'gzip, deflate, br',
+      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36',
+      'connection': 'open'
             } 
           };
-          return request.get(options, function(error, response, body) {
+	  console.log(options);
+	  //Temporary
+	  //resolve('ak_bmsc=D0856A430327C6B4DBDD15FF733410310210B5165B1D0000E8C50B5C4501732D~plhWH04eb5GTS17uiXAp9CtuI56o/fH9rWRUzEnZpJh7dfuP1rE41d9kzWkuYk4yVdeQbuURunGufbyD4B76huSkckPgFn2aneJc/zrh8xH/K+YnIwWk2YGfZU3r4EpBGwhSwRgyHj7plDpXAdrlwLocob1qdNt7qIlJ3iO7WHNITiBfi8+M1dsfnzsrzO/gjyvRP/VYIew/Ip89YhmQ5cm89UNgQFXmOYH8Iwt2OaZIM=;');
+/*
+	return request.get(options, function(error, response, body) {
             console.log(response.headers);
             this.cookieStartedRequest = false;
             if (error) {
@@ -47,7 +55,19 @@ class WizzApi {
               resolve(response.headers['set-cookie'][0].split(' ')[0]);
             }
           });
-        })
+*/
+          exec('sh getWizzCache.sh ' + apiUrl,
+            (error, stdout, stderr) => {
+              console.log(stdout);
+              if (error !== null) {
+	 	reject(Error('Failed \'sh getWizzCache.sh\' with error: ' + error));
+              } else {
+	    	resolve(stdout.slice(0, -1)); // remove last character, probably new line
+     	      };
+            }
+          );
+        
+	})
       .catch((error) => {throw ('Failed to get cookie. ' + error);}); 
     })
     .catch((error) => {throw (error);}); 
