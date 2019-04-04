@@ -1,0 +1,5 @@
+# wizzpricehistory
+App that checks and saves the price for all Wizzair flights, from a specific period. http://wizzpricehistory.com/
+It is written on Node.js and uses AWS DynamoDB.
+*Note: This repo contains only the scrapper part.*
+
