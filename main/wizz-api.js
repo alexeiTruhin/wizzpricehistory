@@ -21,7 +21,7 @@ class WizzApi {
   getCookie(cache = true) {
     if (this.cookieStartedRequest) return this.cookieStartedRequest;
     if (this.cookie && cache) return Promise.resolve(this.cookie);
-
+    
     this.cookieStartedRequest = new Promise((resolve, reject) => {
       return this.getApiVersionUrl()
         .then(function(apiUrl) {
@@ -76,7 +76,8 @@ class WizzApi {
 
   updateCookie() {
     this.cookie = null;
-    return this.getCookie(false).then((r) => {this.cookie = r}).catch((error) => {throw ('Failed to get cookie. ' + error);});
+    this.cookieStartedRequest = false;
+    return this.getCookie(false).then((r) => {this.cookie = r;}).catch((error) => {throw ('Failed to get cookie. ' + error);});
   }
 
   getApiVersionUrl(cache = true, url = 'https://wizzair.com/static/metadata.json') {
@@ -187,7 +188,7 @@ class WizzApi {
                   'content-type': 'application/json; charset=utf-8',
                   'cookie': cookie,
                   'user-agent': USER_AGENT
-                } 
+		} 
               };
               return request.post(options, function(error, response, body) {
                 if (error) {
@@ -269,10 +270,8 @@ class WizzApi {
                   'content-type': 'application/json; charset=utf-8',
                   'cookie': cookie,
                   'user-agent': USER_AGENT
-                } 
+                }
               };
-
-              //console.log(options);
 
               return request.post(options, function(error, response, body) {
                 //console.log('body', body);

@@ -18,7 +18,8 @@ const logger = Logger('app');
 //   }
 // })();
 
-makeOneRotation()
+// 2 Rotation a day, every 12 hour
+Promise.all([makeOneRotation(), timeout(1000*60*60*12)])
 .then(() => {
   logger.info('Successfully finished a rotation.');
 })
@@ -29,6 +30,7 @@ makeOneRotation()
 async function makeOneRotation() {
   const map = await wizzApi.getMap();
   logger.info('Successfully extracted a new map.');
+  let counter = 1;
 
   for (let depObj of map) {
     const departure = depObj.iata;
@@ -41,10 +43,16 @@ async function makeOneRotation() {
       const now = new Date();
 
       for(let month = 0; month < months; month++) {
+	if (counter++ % 360 == 0) { // Update cookie every hour
+		wizzApi.updateCookie();
+	}
+	
         const depDateFrom = new Date(now.getTime() + month * 30 * oneDayInMillisec).toISOString().split('T')[0];
         const depDateTo = new Date(now.getTime() + (month + 1) * 30 * oneDayInMillisec).toISOString().split('T')[0];
         try {
-          await main.getAndStorePrices(departure, arrival, depDateFrom, depDateTo);
+          await Promise.all( // Slow down requests to avoid DynamoDB throttling
+		  [main.getAndStorePrices(departure, arrival, depDateFrom, depDateTo),
+		  timeout(1000)]);
           logger.info('Successfully extracted and stored data for: ', departure, arrival, depDateFrom, depDateTo);
         } catch(e) {
           logger.error('Error on exctracting data for: ', departure, arrival, depDateFrom, depDateTo, e);
@@ -54,4 +62,8 @@ async function makeOneRotation() {
   }
 
   return true;
+}
+
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
