@@ -91,7 +91,8 @@ class WizzApi {
         } else {
           let resBody;
           try {
-            resBody = JSON.parse(body);
+	    // TODO: validate body is a valid JSON
+            resBody = JSON.parse(body.substring(1, body.length));
           } catch (error) {
             reject(Error('Could not parse body. ' + error));
           }
