@@ -92,7 +92,12 @@ class WizzApi {
           let resBody;
           try {
 	    // TODO: validate body is a valid JSON
-            resBody = JSON.parse(body.substring(1, body.length));
+	    try {
+              resBody = JSON.parse(body);
+            } catch (error) {
+              logger.error('Could not parse body. Trying fallback.');
+              resBody = JSON.parse(body.substring(1, body.length));
+	    }
           } catch (error) {
             reject(Error('Could not parse body. ' + error));
           }
