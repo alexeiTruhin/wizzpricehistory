@@ -77,10 +77,10 @@ class WizzApi {
   updateCookie() {
     this.cookie = null;
     this.cookieStartedRequest = false;
-    return this.getCookie(false).then((r) => {this.cookie = r;}).catch((error) => {throw ('Failed to get cookie. ' + error);});
+    return this.getCookie(false).then((r) => {this.cookie = r;}).catch((error) => {logger.error('Failed to get cookie. ' + error);});
   }
 
-  getApiVersionUrl(cache = true, url = 'https://wizzair.com/static/metadata.json') {
+  getApiVersionUrl(cache = true, url = 'https://wizzair.com/static_fe/metadata.json') {
     if (this.apiUrl && cache) return Promise.resolve(this.apiUrl);
     return new Promise(function(resolve, reject) {
       request(url, function(error, response, body) {
@@ -115,7 +115,7 @@ class WizzApi {
   updateApiVersionUrl() {
     let that = this;
     this.apiUrl = null;
-    return this.getApiVersionUrl(false).then((r) => {that.apiUrl = r})
+    return this.getApiVersionUrl(false).then((r) => {that.apiUrl = r}).catch((e) => logger.error('Failed to update API version' + e));
   }
 
   getMap() {
