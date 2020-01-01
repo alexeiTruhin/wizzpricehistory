@@ -155,8 +155,7 @@ class WizzApi {
               reject(Error('Bad statusCode error: ' + response.statusCode));
             } else {
               try {
-                let countriesJSON = body.substr(body.indexOf('[')).replace(';', '');
-                resolve(JSON.parse(countriesJSON));
+                resolve(JSON.parse(body).cities);
               } catch (error) {
                 reject(Error('Could not parse body. ' + error));
               }
